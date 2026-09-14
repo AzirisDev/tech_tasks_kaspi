@@ -18,8 +18,8 @@ sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'"
   | grep -q 1 || sudo -u postgres createdb "${DB_NAME}"
 
 echo "[4/4] Loading schema and seed data..."
-sudo -u postgres psql -d "${DB_NAME}" -f "${SCRIPT_DIR}/schema.sql"
-sudo -u postgres psql -d "${DB_NAME}" -f "${SCRIPT_DIR}/seed.sql"
+sudo -u postgres psql -d "${DB_NAME}" < "${SCRIPT_DIR}/schema.sql"
+sudo -u postgres psql -d "${DB_NAME}" < "${SCRIPT_DIR}/seed.sql"
 
 echo "Done. Run queries with:"
-echo "  sudo -u postgres psql -d ${DB_NAME} -f ${SCRIPT_DIR}/queries.sql"
+echo "  sudo -u postgres psql -d ${DB_NAME} < ${SCRIPT_DIR}/queries.sql"
