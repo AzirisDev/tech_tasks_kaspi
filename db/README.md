@@ -17,6 +17,6 @@ sudo ./provision.sh # устанавливает PostgreSQL 14, создает d
 
 sudo -u postgres psql -d devops_test -f 03_queries.sql
 
-# проверить план выполнения:
+проверить план выполнения:
 sudo -u postgres psql -d devops_test \
   -c "EXPLAIN (ANALYZE, BUFFERS) SELECT ... ;"
