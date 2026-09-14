@@ -20,3 +20,13 @@ sudo -u postgres psql -d devops_test -f 03_queries.sql
 проверить план выполнения:
 sudo -u postgres psql -d devops_test \
   -c "EXPLAIN (ANALYZE, BUFFERS) SELECT ... ;"
+
+
+<img width="1728" height="1117" alt="Screenshot 2026-09-15 at 01 26 25" src="https://github.com/user-attachments/assets/ff6ee930-d6db-4640-9a3f-750c3e6e4506" />
+<img width="1728" height="1117" alt="Screenshot 2026-09-15 at 01 26 20" src="https://github.com/user-attachments/assets/53140e24-5c74-4c1a-97fb-4f67c83c20bc" />
+<img width="1728" height="1117" alt="Screenshot 2026-09-15 at 01 26 07" src="https://github.com/user-attachments/assets/5c74f7b8-bf14-4cfa-98b3-b3a5f883b51a" />
+<img width="1728" height="1117" alt="Screenshot 2026-09-15 at 01 25 45" src="https://github.com/user-attachments/assets/0f465fbf-1fbd-4e11-a277-c6cb34dd6dfa" />
+<img width="1728" height="1117" alt="Screenshot 2026-09-15 at 01 25 35" src="https://github.com/user-attachments/assets/a1544947-f8ef-4f77-8f7d-fd8aaf947b43" />
+
+
+
