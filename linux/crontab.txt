@@ -1,0 +1,17 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# --- thresholds & Telegram (edit these) ---
+CPU_THRESHOLD=80
+MEM_THRESHOLD=80
+DISK_THRESHOLD=85
+PROC_THRESHOLD=300
+WARN_DAYS=30
+# TELEGRAM_BOT_TOKEN=123456:AAExxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# TELEGRAM_CHAT_ID=987654321
+
+# System health — every 5 minutes.
+*/5 * * * * /opt/monitoring/system_monitor.sh >> /var/log/system_monitor.cron.log 2>&1
+
+# SSL certificate expiry — once a day at 08:00.
+0 8 * * * /opt/monitoring/ssl_check.sh -f /opt/monitoring/domains.txt >> /var/log/ssl_check.cron.log 2>&1
