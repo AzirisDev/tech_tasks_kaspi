@@ -14,11 +14,11 @@
 - Объем зависимостей был измерен напрямую (pip install --prefix): Python-пакеты добавляют около 18 МБ поверх базового python:3.12-slim (~120 МБ на диске), поэтому итоговый размер образа составляет ~135–140 МБ, что полностью укладывается в лимит 200 МБ.
 
 3.2 — Стек Compose
-- Сервис  Образ                   Порты       Healthcheck
-- db      postgres:14-alpine      внутренний  pg_isready
-- redis   redis:7-alpine          внутренний  redis-cli ping
-- app     сборка из ./app         внутренний  GET /health
-- nginx   nginx:1.27-alpine       80 -> хост  wget /health
+|Сервис|Образ||Порты|Healthcheck|
+|db|postgres:14-alpine|внутренний|pg_isready|
+|redis|redis:7-alpine|внутренний|redis-cli ping|
+|app|сборка из ./app|внутренний|GET /health|
+|nginx|nginx:1.27-alpine|80 -> хост|wget /health|
 
 3.1
 <img width="1728" height="1117" alt="Screenshot 2026-09-15 at 10 47 41" src="https://github.com/user-attachments/assets/f5f3cc38-4d77-4f00-b929-47f76170dc26" />
