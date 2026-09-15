@@ -1,0 +1,267 @@
+# =====================================================================
+#  CI/CD pipeline — build, test, push, deploy (GitHub Actions)
+#  Notifications: Telegram (build failure, deploy success, rollback).
+#  Auto-rollback on failed health checks.
+#
+#  Required repository secrets (Settings -> Secrets and variables -> Actions):
+#    DOCKERHUB_USERNAME     Docker Hub user
+#    DOCKERHUB_TOKEN        Docker Hub access token
+#    KUBE_CONFIG            base64-encoded kubeconfig for the target cluster
+#    TELEGRAM_BOT_TOKEN     Telegram bot token (@BotFather)
+#    TELEGRAM_CHAT_ID       Telegram chat/channel id
+#
+#  Optional repository variables:
+#    IMAGE_NAME             defaults to <dockerhub_user>/flask-microservice
+#    K8S_NAMESPACE          defaults to devops-test
+#    K8S_DEPLOYMENT         defaults to flask-app
+# =====================================================================
+name: CI/CD
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  IMAGE_NAME: ${{ vars.IMAGE_NAME || format('{0}/flask-microservice', secrets.DOCKERHUB_USERNAME) }}
+  K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE || 'devops-test' }}
+  K8S_DEPLOYMENT: ${{ vars.K8S_DEPLOYMENT || 'flask-app' }}
+  MAX_IMAGE_SIZE_MB: "250"
+  WORKDIR: app
+
+jobs:
+  # ============================ STAGE 1: BUILD ============================
+  build:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip                     # cache pip deps for speed
+          cache-dependency-path: ${{ env.WORKDIR }}/requirements-dev.txt
+
+      - name: Install lint deps
+        working-directory: ${{ env.WORKDIR }}
+        run: pip install -r requirements-dev.txt
+
+      - name: Run flake8
+        working-directory: ${{ env.WORKDIR }}
+        run: flake8 .
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (with layer cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.WORKDIR }}
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Check image size (< ${{ env.MAX_IMAGE_SIZE_MB }} MB)
+        run: |
+          SIZE_BYTES=$(docker image inspect "${IMAGE_NAME}:${{ github.sha }}" --format '{{.Size}}')
+          SIZE_MB=$(( SIZE_BYTES / 1024 / 1024 ))
+          echo "Image size: ${SIZE_MB} MB (limit ${MAX_IMAGE_SIZE_MB} MB)"
+          if [ "$SIZE_MB" -ge "$MAX_IMAGE_SIZE_MB" ]; then
+            echo "::error::Image ${SIZE_MB}MB exceeds ${MAX_IMAGE_SIZE_MB}MB limit"
+            exit 1
+          fi
+
+  # ============================ STAGE 2: TEST ============================
+  test:
+    name: Test & Coverage
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ${{ env.WORKDIR }}/requirements-dev.txt
+
+      - name: Install deps
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run unit + integration tests with coverage (>= 70%)
+        working-directory: ${{ env.WORKDIR }}
+        run: pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=70
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: ${{ env.WORKDIR }}/coverage.xml
+
+      # Optional security scan (non-blocking). Uncomment to enable Trivy.
+      # - name: Trivy filesystem scan
+      #   uses: aquasecurity/trivy-action@0.24.0
+      #   with:
+      #     scan-type: fs
+      #     scan-ref: ${{ env.WORKDIR }}
+      #     severity: HIGH,CRITICAL
+
+  # ============================ STAGE 3: PUSH ============================
+  push:
+    name: Push to Registry
+    runs-on: ubuntu-latest
+    needs: test
+    # Only push from main/master, never from PRs.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    outputs:
+      image_tag: ${{ github.sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push (sha + latest)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.WORKDIR }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================ STAGE 4: DEPLOY ==========================
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: push
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Capture current image (for rollback)
+        id: current
+        run: |
+          PREV=$(kubectl -n "$K8S_NAMESPACE" get deploy "$K8S_DEPLOYMENT" \
+                 -o jsonpath='{.spec.template.spec.containers[0].image}' || echo "")
+          echo "prev_image=$PREV" >> "$GITHUB_OUTPUT"
+          echo "Previous image: $PREV"
+
+      - name: Update deployment image
+        run: |
+          kubectl -n "$K8S_NAMESPACE" set image \
+            deploy/"$K8S_DEPLOYMENT" \
+            "$K8S_DEPLOYMENT=${IMAGE_NAME}:${{ github.sha }}" --record
+
+      - name: Wait for rollout (max 5 min)
+        id: rollout
+        run: kubectl -n "$K8S_NAMESPACE" rollout status deploy/"$K8S_DEPLOYMENT" --timeout=300s
+
+      - name: Health check
+        id: health
+        run: |
+          # Port-forward the service and probe /health a few times.
+          kubectl -n "$K8S_NAMESPACE" port-forward svc/"$K8S_DEPLOYMENT" 8080:80 &
+          PF_PID=$!
+          sleep 5
+          ok=0
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health || echo 000)
+            echo "attempt $i -> HTTP $code"
+            if [ "$code" = "200" ]; then ok=1; break; fi
+            sleep 5
+          done
+          kill $PF_PID 2>/dev/null || true
+          [ "$ok" = "1" ] || { echo "::error::health check failed"; exit 1; }
+
+      # ---------------- AUTO-ROLLBACK ----------------
+      - name: Rollback on failure
+        if: failure() && steps.current.outputs.prev_image != ''
+        run: |
+          echo "Rolling back to ${{ steps.current.outputs.prev_image }}"
+          kubectl -n "$K8S_NAMESPACE" rollout undo deploy/"$K8S_DEPLOYMENT"
+          kubectl -n "$K8S_NAMESPACE" rollout status deploy/"$K8S_DEPLOYMENT" --timeout=180s
+
+      - name: Notify rollback (Telegram)
+        if: failure() && steps.current.outputs.prev_image != ''
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          MSG="🔴 *ROLLBACK* on ${{ github.repository }}
+          Deploy of \`${{ github.sha }}\` failed health checks and was rolled back.
+          Reverted to: \`${{ steps.current.outputs.prev_image }}\`
+          Author: ${{ github.actor }}
+          Commit: ${COMMIT_MSG}"
+          curl -s --max-time 10 -X POST \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            --data-urlencode "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            --data-urlencode "text=${MSG}" \
+            --data-urlencode "parse_mode=Markdown" || true
+
+      - name: Notify success (Telegram)
+        if: success()
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          MSG="✅ *Deploy succeeded* on ${{ github.repository }}
+          Image: \`${IMAGE_NAME}:${{ github.sha }}\`
+          Author: ${{ github.actor }}
+          Commit: ${COMMIT_MSG}"
+          curl -s --max-time 10 -X POST \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            --data-urlencode "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            --data-urlencode "text=${MSG}" \
+            --data-urlencode "parse_mode=Markdown" || true
+
+  # ================= build-failure notification =================
+  notify-build-failure:
+    name: Notify build failure
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: failure()
+    steps:
+      - name: Notify failure (Telegram)
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message || github.sha }}
+        run: |
+          MSG="❌ *Build/Test failed* on ${{ github.repository }}
+          Branch: ${{ github.ref_name }}
+          Author: ${{ github.actor }}
+          Commit: ${COMMIT_MSG}
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s --max-time 10 -X POST \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            --data-urlencode "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            --data-urlencode "text=${MSG}" \
+            --data-urlencode "parse_mode=Markdown" || true
