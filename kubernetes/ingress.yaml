@@ -1,0 +1,29 @@
+# Ingress routing / -> flask-app service (Task 4.3).
+# TLS is included but commented — uncomment and provide a cert secret
+# (e.g. via cert-manager) to enable HTTPS.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flask-app-ingress
+  namespace: devops-test
+  labels:
+    app: flask-app
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  # tls:
+  #   - hosts:
+  #       - app.example.com
+  #     secretName: flask-app-tls
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: flask-app
+                port:
+                  number: 80
