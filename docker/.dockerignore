@@ -1,0 +1,28 @@
+# Version control & CI
+.git
+.gitignore
+.github
+
+# Python caches / envs
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+
+# Local logs & data
+*.log
+logs/
+data/
+
+# Editor / OS cruft
+.vscode/
+.idea/
+.DS_Store
+
+# Docs & compose (not needed inside the image)
+README.md
+docker-compose.yml
