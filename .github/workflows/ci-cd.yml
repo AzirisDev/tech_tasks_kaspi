@@ -245,17 +245,26 @@ jobs:
             --data-urlencode "parse_mode=Markdown" || true
 
   # ================= build-failure notification =================
-  notify-build-failure:
-    name: Notify build failure
+  notify-build:
+    name: Notify build result
     runs-on: ubuntu-latest
     needs: [build, test]
-    if: failure()
+    # always() -> run whether build/test passed or failed (but still after them).
+    if: always()
     steps:
-      - name: Notify failure (Telegram)
+      - name: Notify build/test result (Telegram)
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message || github.sha }}
+          # Derive an overall result from the two upstream jobs.
+          BUILD_RESULT: ${{ needs.build.result }}
+          TEST_RESULT: ${{ needs.test.result }}
         run: |
-          MSG="❌ *Build/Test failed* on ${{ github.repository }}
+          if [ "$BUILD_RESULT" = "success" ] && [ "$TEST_RESULT" = "success" ]; then
+            ICON="✅"; VERDICT="Build & tests passed"
+          else
+            ICON="❌"; VERDICT="Build/Test failed (build=$BUILD_RESULT, test=$TEST_RESULT)"
+          fi
+          MSG="${ICON} *${VERDICT}* on ${{ github.repository }}
           Branch: ${{ github.ref_name }}
           Author: ${{ github.actor }}
           Commit: ${COMMIT_MSG}
