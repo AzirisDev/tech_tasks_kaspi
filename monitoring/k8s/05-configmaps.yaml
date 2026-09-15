@@ -1,0 +1,25 @@
+# ConfigMaps that back the monitoring deployments. In practice generate
+# these from the files with kubectl, so they never drift:
+#
+#   kubectl -n monitoring create configmap prometheus-config \
+#     --from-file=prometheus.yml=prometheus/prometheus.yml --dry-run=client -o yaml
+#   kubectl -n monitoring create configmap grafana-datasources \
+#     --from-file=datasources.yml=grafana/datasources.yml --dry-run=client -o yaml
+#   kubectl -n monitoring create configmap loki-config \
+#     --from-file=loki-config.yml=loki/loki-config.yml --dry-run=client -o yaml
+#   kubectl -n monitoring create configmap promtail-config \
+#     --from-file=promtail-config.yml=loki/promtail-config.yml --dry-run=client -o yaml
+#
+# Placeholders below so `kubectl apply -f k8s/` works before you generate
+# the real ones; replace with the generated versions (or use kustomize
+# configMapGenerator).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    # Replace with the contents of prometheus/prometheus.yml
+    global:
+      scrape_interval: 15s

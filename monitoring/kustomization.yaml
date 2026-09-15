@@ -1,0 +1,25 @@
+# Generates the config ConfigMaps from the actual files so they never drift,
+# and applies all monitoring manifests. Run:  kubectl apply -k .
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - k8s/00-namespace.yaml
+  - k8s/01-prometheus.yaml
+  - k8s/02-grafana.yaml
+  - k8s/03-loki-promtail.yaml
+configMapGenerator:
+  - name: prometheus-config
+    files:
+      - prometheus.yml=prometheus/prometheus.yml
+  - name: grafana-datasources
+    files:
+      - datasources.yml=grafana/datasources.yml
+  - name: loki-config
+    files:
+      - loki-config.yml=loki/loki-config.yml
+  - name: promtail-config
+    files:
+      - promtail-config.yml=loki/promtail-config.yml
+generatorOptions:
+  disableNameSuffixHash: true

@@ -1,0 +1,37 @@
+# Local monitoring stack for quick testing (Prometheus + Grafana + Loki + app).
+# Usage: docker compose up --build ; open http://localhost:3000 (admin/admin)
+services:
+  app:
+    build: ./app
+    environment:
+      SERVICE_NAME: flask-app
+      POD_NAME: local-app
+    ports:
+      - "5000:5000"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./prometheus/prometheus-local.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  loki:
+    image: grafana/loki:3.1.1
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    ports:
+      - "3100:3100"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/ds.yml:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki

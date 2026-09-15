@@ -1,0 +1,46 @@
+# Promtail: collect container logs and ship to Loki (Task 7.2, Variant B).
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Discover and tail all pod logs in the cluster.
+  - job_name: kubernetes-pods
+    kubernetes_sd_configs:
+      - role: pod
+    pipeline_stages:
+      # App logs are JSON; parse them so fields become queryable labels.
+      - json:
+          expressions:
+            level: level
+            service: service
+            pod_name: pod_name
+            request_id: request_id
+            message: message
+      - labels:
+          level:
+          service:
+          request_id:
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_pod_container_name]
+        target_label: container
+      - source_labels: [__meta_kubernetes_pod_node_name]
+        target_label: node
+      # Only keep pods that opt in with the logging annotation.
+      - source_labels: [__meta_kubernetes_pod_annotation_logging]
+        regex: "true"
+        action: keep
+      - action: replace
+        source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+        target_label: __path__
+        replacement: /var/log/pods/*$1/*.log

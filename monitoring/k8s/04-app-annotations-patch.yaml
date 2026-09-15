@@ -1,0 +1,21 @@
+# Add these annotations to the Flask Deployment's pod template
+# (section4-k8s/06-flask-deployment.yaml) so Prometheus scrapes it and
+# Promtail collects its logs. Shown here as a reference patch.
+#
+# spec:
+#   template:
+#     metadata:
+#       annotations:
+#         prometheus.io/scrape: "true"
+#         prometheus.io/port: "5000"
+#         prometheus.io/path: "/metrics"
+#         logging: "true"
+#       labels:
+#         app: flask-app
+#
+# Apply the same env so logs carry the pod name:
+#   env:
+#     - name: POD_NAME
+#       valueFrom:
+#         fieldRef:
+#           fieldPath: metadata.name
