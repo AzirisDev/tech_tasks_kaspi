@@ -10,3 +10,5 @@ crontab.example - Готовые к установке записи cron для 
 domains.txt.example - Пример списка доменов для запуска ssl_check.sh -f
 
 
+<img width="1728" height="1117" alt="Screenshot 2026-09-15 at 09 27 48" src="https://github.com/user-attachments/assets/d3c66e3f-329f-495a-bf06-da97d809103f" />
+<img width="645" height="1398" alt="IMG_0473" src="https://github.com/user-attachments/assets/3a797bf5-d5f5-4acc-a10a-e81e6ef6065e" />
