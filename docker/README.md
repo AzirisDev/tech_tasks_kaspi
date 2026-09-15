@@ -15,6 +15,7 @@
 
 3.2 — Стек Compose
 |Сервис|Образ||Порты|Healthcheck|
+|---|---|---|---|
 |db|postgres:14-alpine|внутренний|pg_isready|
 |redis|redis:7-alpine|внутренний|redis-cli ping|
 |app|сборка из ./app|внутренний|GET /health|
