@@ -28,7 +28,7 @@ env:
   K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE || 'devops-test' }}
   K8S_DEPLOYMENT: ${{ vars.K8S_DEPLOYMENT || 'flask-app' }}
   MAX_IMAGE_SIZE_MB: "250"
-  WORKDIR: app
+  WORKDIR: ci-cd/app
 
 jobs:
   # ============================ STAGE 1: BUILD ============================
