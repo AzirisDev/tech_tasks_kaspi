@@ -4,10 +4,10 @@
 
 Файлы
 
-system_monitor.sh - Мониторинг CPU / памяти / диска / количества процессов с пороговыми значениями + оповещения в Slack
-ssl_check.sh - Проверка срока действия TLS-сертификатов для одного или нескольких доменов + оповещения в Slack
-crontab.example - Готовые к установке записи cron для обоих скриптов
-domains.txt.example - Пример списка доменов для запуска ssl_check.sh -f
+- system_monitor.sh - Мониторинг CPU / памяти / диска / количества процессов с пороговыми значениями + оповещения в Slack
+- ssl_check.sh - Проверка срока действия TLS-сертификатов для одного или нескольких доменов + оповещения в Slack
+- crontab.example - Готовые к установке записи cron для обоих скриптов
+- domains.txt.example - Пример списка доменов для запуска ssl_check.sh -f
 
 
 <img width="1728" height="1117" alt="Screenshot 2026-09-15 at 09 27 48" src="https://github.com/user-attachments/assets/d3c66e3f-329f-495a-bf06-da97d809103f" />
