@@ -4,9 +4,9 @@
 
 3.1 — Особенности Dockerfile
 
-Multi-stage
-Non-root
-Минимальный базовый образ
+- Multi-stage
+- Non-root
+- Минимальный базовый образ
 Healthcheck
 Метаданные
 Среда выполнения
