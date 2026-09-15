@@ -19,3 +19,5 @@ section6-terraform/
 ```
 
 Each module has `main.tf`, `variables.tf`, and `outputs.tf` (Task 6.5).
+
+<img width="1728" height="1117" alt="Screenshot 2026-09-15 at 16 19 54" src="https://github.com/user-attachments/assets/1ec10417-b922-4289-a7b6-a7e17826d9ac" />
